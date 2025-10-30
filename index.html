@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Attendance | GlobalTech Travels</title>
+  <style>
+    body{font-family:system-ui,Arial;margin:2rem auto;max-width:600px;padding:1rem;color:#333}
+    label{display:block;margin-top:1rem;font-weight:600}
+    input,button{width:100%;font-size:1rem;padding:.6rem;margin-top:.3rem}
+    button{background:#007bff;border:none;color:#fff;border-radius:6px;cursor:pointer}
+    button:disabled{opacity:.6}
+    p.small{font-size:.85rem;color:#666}
+  </style>
+</head>
+<body>
+  <h2>Share your attendance location</h2>
+  <p class="small">Enter your Employee ID and allow GPS to mark attendance.</p>
+
+  <label>Employee ID
+    <input id="emp" placeholder="e.g. STN002" required>
+  </label>
+  <label>Full Name (optional)
+    <input id="name" placeholder="e.g. Idowu Adewoye">
+  </label>
+
+  <button id="btn">Share Location & Submit</button>
+  <p id="msg" class="small"></p>
+
+<script>
+const WEBHOOK_URL = "https://businesswelltechnology.app.n8n.cloud/webhook/attendance-gps";
+const TOKEN = "SECRET123";   // <-- optional; set same value in n8n validation
+
+const qs = new URLSearchParams(window.location.search);
+const chatParam = qs.get('chat_id') || null;
+if(qs.get('emp')) document.getElementById('emp').value = qs.get('emp');
+if(qs.get('name')) document.getElementById('name').value = qs.get('name');
+
+const btn = document.getElementById('btn');
+const msg = document.getElementById('msg');
+
+function show(t){msg.textContent=t;}
+
+btn.onclick = () => {
+  const emp = document.getElementById('emp').value.trim();
+  const name = document.getElementById('name').value.trim();
+  if(!emp){show("⚠️ Enter your Employee ID first.");return;}
+  if(!navigator.geolocation){show("❌ Browser does not support geolocation.");return;}
+
+  btn.disabled = true; show("Requesting location permission…");
+
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const payload={
+      chat_id:chatParam,
+      Employee_ID:emp,
+      full_name:name||null,
+      latitude:pos.coords.latitude,
+      longitude:pos.coords.longitude,
+      accuracy:pos.coords.accuracy,
+      source:"webform",
+      token:TOKEN
+    };
+    try{
+      show("📡 Submitting attendance…");
+      const res=await fetch(WEBHOOK_URL,{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      if(res.ok){show("✅ Attendance sent successfully.");}
+      else{show("❌ Server error "+res.status);}
+    }catch(e){show("❌ Network error: "+e.message);}
+    finally{btn.disabled=false;}
+  },err=>{
+    show("❌ Unable to get location: "+err.message);
+    btn.disabled=false;
+  },{enableHighAccuracy:true,timeout:10000});
+};
+</script>
+</body>
+</html>
