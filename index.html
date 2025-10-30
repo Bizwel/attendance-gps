@@ -1,82 +1,152 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Attendance | GlobalTech Travels</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Share your attendance location</title>
   <style>
-    body{font-family:system-ui,Arial;margin:2rem auto;max-width:600px;padding:1rem;color:#333}
-    label{display:block;margin-top:1rem;font-weight:600}
-    input,button{width:100%;font-size:1rem;padding:.6rem;margin-top:.3rem}
-    button{background:#007bff;border:none;color:#fff;border-radius:6px;cursor:pointer}
-    button:disabled{opacity:.6}
-    p.small{font-size:.85rem;color:#666}
+    body {
+      font-family: system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: #f8fafc;
+      margin: 0;
+    }
+    .card {
+      background: #fff;
+      padding: 2rem;
+      border-radius: 1rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      width: 90%;
+      max-width: 400px;
+    }
+    h2 {
+      text-align: center;
+      color: #222;
+    }
+    label {
+      display: block;
+      margin-top: 1rem;
+      font-weight: 600;
+    }
+    input {
+      width: 100%;
+      padding: 0.7rem;
+      margin-top: 0.3rem;
+      border: 1px solid #ccc;
+      border-radius: 0.4rem;
+      font-size: 1rem;
+    }
+    button {
+      width: 100%;
+      margin-top: 1.5rem;
+      padding: 0.8rem;
+      font-size: 1rem;
+      border: none;
+      background-color: #007bff;
+      color: #fff;
+      border-radius: 0.4rem;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 1rem;
+      text-align: center;
+      font-weight: 600;
+    }
+    .success { color: #22c55e; }
+    .error { color: #dc2626; }
   </style>
 </head>
 <body>
-  <h2>Share your attendance location</h2>
-  <p class="small">Enter your Employee ID and allow GPS to mark attendance.</p>
+  <div class="card">
+    <h2>Share your attendance location</h2>
+    <label>Employee ID</label>
+    <input type="text" id="empId" placeholder="e.g. STN002" required />
 
-  <label>Employee ID
-    <input id="emp" placeholder="e.g. STN002" required>
-  </label>
-  <label>Full Name (optional)
-    <input id="name" placeholder="e.g. Idowu Adewoye">
-  </label>
+    <label>Full Name (optional)</label>
+    <input type="text" id="fullName" placeholder="e.g. Idowu Adewoye" />
 
-  <button id="btn">Share Location & Submit</button>
-  <p id="msg" class="small"></p>
+    <button id="shareBtn">📍 Share Location & Submit</button>
+    <div id="status" class="status"></div>
+  </div>
 
-<script>
-const WEBHOOK_URL = "https://businesswelltechnology.app.n8n.cloud/webhook/attendance-gps";
-const TOKEN = "SECRET123";   // <-- optional; set same value in n8n validation
+  <script>
+    const button = document.getElementById("shareBtn");
+    const statusMsg = document.getElementById("status");
 
-const qs = new URLSearchParams(window.location.search);
-const chatParam = qs.get('chat_id') || null;
-if(qs.get('emp')) document.getElementById('emp').value = qs.get('emp');
-if(qs.get('name')) document.getElementById('name').value = qs.get('name');
+    // 🔁 Replace this with your Cloudflare Worker URL
+    const WEBHOOK_URL = "https://wispy-rain-f404.idowu-adewoye.workers.dev/";
 
-const btn = document.getElementById('btn');
-const msg = document.getElementById('msg');
+    async function submitAttendance(latitude, longitude) {
+      const payload = {
+        Employee_ID: document.getElementById("empId").value.trim(),
+        full_name: document.getElementById("fullName").value.trim(),
+        latitude,
+        longitude,
+      };
 
-function show(t){msg.textContent=t;}
-
-btn.onclick = () => {
-  const emp = document.getElementById('emp').value.trim();
-  const name = document.getElementById('name').value.trim();
-  if(!emp){show("⚠️ Enter your Employee ID first.");return;}
-  if(!navigator.geolocation){show("❌ Browser does not support geolocation.");return;}
-
-  btn.disabled = true; show("Requesting location permission…");
-
-  navigator.geolocation.getCurrentPosition(async pos=>{
-    const payload={
-      chat_id:chatParam,
-      Employee_ID:emp,
-      full_name:name||null,
-      latitude:pos.coords.latitude,
-      longitude:pos.coords.longitude,
-      accuracy:pos.coords.accuracy,
-      source:"webform",
-      token:TOKEN
-    };
-    try{
-      show("📡 Submitting attendance…");
-      const res=await fetch("https://wispy-rain-f404.idowu-adewoye.workers.dev/", {
+      try {
+        const response = await fetch("https://wispy-rain-f404.idowu-adewoye.workers.dev/", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify(payload)
 })
-      if(res.ok){show("✅ Attendance sent successfully.");}
-      else{show("❌ Server error "+res.status);}
-    }catch(e){show("❌ Network error: "+e.message);}
-    finally{btn.disabled=false;}
-  },err=>{
-    show("❌ Unable to get location: "+err.message);
-    btn.disabled=false;
-  },{enableHighAccuracy:true,timeout:10000});
-};
-</script>
+
+        if (!response.ok) throw new Error(`Server returned ${response.status}`);
+        statusMsg.textContent = "✅ Attendance sent successfully.";
+        statusMsg.className = "status success";
+      } catch (err) {
+        statusMsg.textContent = "❌ Failed to send attendance. Try again.";
+        statusMsg.className = "status error";
+        console.error("Error submitting:", err);
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function getLocationAndSubmit() {
+      const empId = document.getElementById("empId").value.trim();
+      if (!empId) {
+        statusMsg.textContent = "⚠️ Please enter your Employee ID first.";
+        statusMsg.className = "status error";
+        return;
+      }
+
+      button.disabled = true;
+      statusMsg.textContent = "📍 Getting your location...";
+      statusMsg.className = "status";
+
+      if (!navigator.geolocation) {
+        statusMsg.textContent = "❌ Geolocation not supported by this browser.";
+        statusMsg.className = "status error";
+        button.disabled = false;
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          statusMsg.textContent = "🚀 Sending attendance...";
+          submitAttendance(latitude, longitude);
+        },
+        (err) => {
+          console.warn(err);
+          statusMsg.textContent = "❌ Location access denied or unavailable.";
+          statusMsg.className = "status error";
+          button.disabled = false;
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+
+    button.addEventListener("click", getLocationAndSubmit);
+  </script>
 </body>
 </html>
-
