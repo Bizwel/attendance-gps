@@ -62,7 +62,11 @@ btn.onclick = () => {
     };
     try{
       show("📡 Submitting attendance…");
-      const res=await fetch(WEBHOOK_URL,{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const res=await fetch("https://wispy-rain-f404.idowu-adewoye.workers.dev/", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload)
+})
       if(res.ok){show("✅ Attendance sent successfully.");}
       else{show("❌ Server error "+res.status);}
     }catch(e){show("❌ Network error: "+e.message);}
@@ -75,3 +79,4 @@ btn.onclick = () => {
 </script>
 </body>
 </html>
+
